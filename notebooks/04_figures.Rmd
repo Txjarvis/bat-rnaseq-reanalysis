@@ -1,0 +1,126 @@
+---
+title: "04 Visualisation and Figures"
+author: "Tegan Jarvis"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r}
+library(DESeq2)
+library(EnhancedVolcano)
+library(pheatmap)
+library(ggplot2)
+```
+
+```{r}
+vsd <- readRDS("results/vsd.rds")
+metadata <- readRDS("results/metadata.rds")
+merged_results <- readRDS("results/merged_results.rds")
+res_inf <- readRDS("results/res_infection.rds")
+```
+
+```{r}
+dir.create("figures", showWarnings = FALSE)
+```
+
+```{r}
+pcaData <- plotPCA(
+  vsd,
+  intgroup = c("infection", "temperature"),
+  returnData = TRUE
+)
+
+percentVar <- round(
+  100 * attr(pcaData, "percentVar")
+)
+
+ggplot(pcaData,
+       aes(x = PC1,
+           y = PC2,
+           colour = infection,
+           shape = temperature)) +
+  xlab(paste0("PC1: ", percentVar[1], "% variance")) +
+
+  ylab(paste0("PC2: ", percentVar[2], "% variance")) +
+  
+  geom_point(size = 4) +
+  theme_bw()
+```
+
+```{r}
+
+png("figures/volcano_gene_plot1.png",
+    width = 1200,
+    height = 1000,
+    res = 150)
+
+labs <- merged_results$external_gene_name
+labs[is.na(labs)] <- ""
+
+EnhancedVolcano(
+  merged_results,
+  lab = labs,
+  x = "log2FoldChange",
+  y = "padj"
+)
+
+dev.off()
+```
+
+```{r}
+top_genes <- head(
+  merged_results$ensembl_gene_id[
+    order(merged_results$padj)
+  ],
+  30
+)
+
+mat <- assay(vsd)[top_genes, ]
+
+mat_scaled <- t(scale(t(mat)))
+
+annotation_col <- metadata[
+  ,
+  c("infection", "temperature")
+]
+```
+
+```{r}
+gene_labels <- merged_results$external_gene_name[
+  match(
+    top_genes,
+    merged_results$ensembl_gene_id
+  )
+]
+
+keep <- !is.na(gene_labels) &
+        gene_labels != ""
+
+mat_scaled <- mat_scaled[keep, ]
+
+rownames(mat_scaled) <- gene_labels[keep]
+```
+
+
+```{r}
+pdf("figures/top_DE_genes_heatmap.pdf", width = 8, height = 7)
+
+pheatmap(
+  mat_scaled,
+
+  annotation_col = annotation_col,
+
+  show_rownames = TRUE,
+  show_colnames = TRUE,
+
+  cluster_rows = TRUE,
+  cluster_cols = TRUE,
+
+  fontsize_row = 8,
+
+  main = "Top Differentially Expressed Genes"
+)
+
+dev.off()
+```
+

@@ -1,0 +1,198 @@
+---
+title: "03 Differential Expression Analysis"
+author: "Tegan Jarvis"
+output: html_document
+---
+
+```{r}
+library(DESeq2)
+library(biomaRt)
+
+dds <- readRDS("results/dds.rds")
+vsd <- readRDS("results/vsd.rds")
+```
+
+
+```{r}
+design =  ~ temperature + infection
+res_inf <- results(dds, contrast = c("infection", "INF", "NI"))
+summary(res_inf)
+
+head(res_inf[order(res_inf$padj), ])
+```
+
+```{r}
+sum(res_inf$padj < 0.05, na.rm = TRUE )
+
+sig <- subset(res_inf,
+              padj < 0.05 & abs(log2FoldChange) > 1)
+
+nrow(sig)
+
+res_df <- as.data.frame(res_inf)
+
+sig_genes <- rownames(
+  subset(
+    res_df,
+    !is.na(padj) &
+      padj < 1e-20 &
+      abs(log2FoldChange) > 4
+  )
+)
+
+length(sig_genes)
+
+labs <- rownames(res_df)
+labs[!labs %in% sig_genes] <- ""
+
+length(sig_genes)
+```
+
+
+Infection induces widespread transcriptional changes in bat cells, with numerous genes exhibiting large-magnitude and highly significant differential expression.
+
+#### Gene annotation
+
+```{r}
+sig <- subset(
+  res_df,
+  padj < 0.05 &
+  abs(log2FoldChange) > 1
+)
+
+sig <- sig[order(sig$padj), ]
+
+head(sig, 20)
+
+saveRDS(sig_genes, "results/sig_genes.rds")
+```
+
+```{r}
+ensembl <- useEnsembl(
+  biomart = "genes",
+  version = 110
+)
+```
+
+```{r}
+datasets <- listDatasets(ensembl)
+
+datasets[grep("microbat|lucifugus|myotis", datasets$description, ignore.case = TRUE), ]
+```
+
+```{r}
+bat <- useDataset(
+  "mlucifugus_gene_ensembl",
+  mart = ensembl
+)
+
+getBM(
+  attributes = c(
+    "ensembl_gene_id",
+    "external_gene_name",
+    "description"
+  ),
+  filters = "ensembl_gene_id",
+  values = "ENSMLUG00000004725",
+  mart = bat
+)
+```
+
+```{r}
+annotations <- getBM(
+  attributes = c(
+    "ensembl_gene_id",
+    "external_gene_name",
+    "description"
+  ),
+  filters = "ensembl_gene_id",
+  values = rownames(sig),
+  mart = bat
+)
+
+head(annotations)
+```
+
+```{r}
+res_df$ensembl_gene_id <- rownames(res_df)
+
+merged_results <- merge(
+  res_df,
+  annotations,
+  by = "ensembl_gene_id"
+)
+
+head(
+  merged_results[
+    order(merged_results$padj),
+  ],
+  20
+)
+```
+
+
+
+```{r}
+top_genes <- head(
+  merged_results$ensembl_gene_id[order(merged_results$padj)],
+  30
+)
+
+mat <- assay(vsd)[top_genes, ]
+
+gene_labels <- merged_results$external_gene_name[
+  match(top_genes, merged_results$ensembl_gene_id)
+]
+
+keep <- !is.na(gene_labels) & gene_labels != ""
+
+mat <- mat[keep, ]
+gene_labels <- gene_labels[keep]
+
+keep_unique <- !duplicated(gene_labels)
+mat <- mat[keep_unique, ]
+gene_labels <- gene_labels[keep_unique]
+
+
+rownames(mat) <- gene_labels
+mat_scaled <- t(scale(t(mat)))
+
+annotation_col <- metadata[, c("infection", "temperature")]
+```
+
+```{r}
+
+```
+
+
+```{r}
+
+saveRDS(res_inf, "results/res_infection.rds")
+
+saveRDS(merged_results, "results/merged_results.rds")
+
+sig_genes <- subset(
+  merged_results,
+  !is.na(padj) &
+    padj < 0.05 &
+    abs(log2FoldChange) > 1 &
+    !is.na(external_gene_name) &
+    external_gene_name != ""
+)
+
+saveRDS(sig_genes, "results/sig_genes_for_GO.rds")
+
+write.csv(
+  merged_results,
+  "results/infection_DE_results_annotated.csv",
+  row.names = FALSE
+)
+
+write.csv(
+  sig_genes,
+  "results/sig_genes_for_GO.csv",
+  row.names = FALSE
+)
+```
+
+

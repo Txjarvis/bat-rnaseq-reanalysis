@@ -1,0 +1,66 @@
+
+---
+title: "02 Quality Control and PCA"
+author: "Tegan Jarvis"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r}
+library(DESeq2)
+library(ggplot2)
+
+counts <- readRDS("results/counts_matrix.rds")
+metadata <- readRDS("results/metadata.rds")
+```
+
+```{r}
+
+keep <- rowSums(counts >= 10) >=3
+counts_filtered <- counts[keep, ]
+dim(counts_filtered)
+```
+
+```{r}
+dds <- DESeqDataSetFromMatrix(
+  countData = counts_filtered,
+  colData = metadata,
+  design = ~ temperature + infection
+)
+```
+
+```{r}
+dds <- DESeq(dds)
+vsd <- vst(dds)
+```
+
+```{r}
+pcaData <- plotPCA(
+  vsd,
+  intgroup = c("temperature", "infection"),
+  returnData = TRUE
+)
+
+head(pcaData)
+```
+
+```{r}
+percentVar <- round(
+  100 * attr(pcaData, "percentVar")
+)
+
+attributes(pcaData)
+```
+
+```{r}
+```
+
+Infection is the dominant driver of gene expression changes in this dataset. Temperature influences expression, but less strongly than infection overall.
+
+```{r}
+saveRDS(dds, "results/dds.rds")
+saveRDS(vsd, "results/vsd.rds")
+saveRDS(counts_filtered, "results/counts_filtered.rds")
+```
+
+

@@ -1,0 +1,113 @@
+---
+title: "07 Replication of Published Figures"
+author: "Tegan Jarvis"
+output: html_document
+---
+
+This notebook is to create the original paper’s PCA + sample distance heatmap as closely as possible, then compare results.
+
+Harazim M, Perrot J, Varet H, Bourhy H, Lannoy J, Pikula J, Seidlová V, Dacheux L, Martínková N. Transcriptomic responses of bat cells to European bat lyssavirus 1 infection under conditions simulating euthermia and hibernation. BMC Immunol. 2023 Apr 21;24(1):7. doi: 10.1186/s12865-023-00542-7. PMID: 37085747; PMCID: PMC10120247.
+
+```{r}
+library(DESeq2)
+library(ggplot2)
+library(pheatmap)
+library(RColorBrewer)
+library(patchwork)
+```
+
+```{r}
+vsd <- readRDS("results/vsd.rds")
+metadata <- readRDS("results/metadata.rds")
+```
+
+```{r}
+metadata$design <- paste0(
+  metadata$infection,
+  "_t",
+  metadata$temperature
+)
+
+head(metadata)
+```
+
+
+```{r}
+colData(vsd)$design <- paste0(
+  colData(vsd)$infection,
+  "_t",
+  colData(vsd)$temperature
+)
+
+colData(vsd)$replicate <- rep(c("r1", "r2", "r3"), times = 4)
+```
+
+```{r}
+pcaData <- plotPCA(
+  vsd,
+  intgroup = c("design"),
+  returnData = TRUE
+)
+
+percentVar <- round(100 * attr(pcaData, "percentVar"))
+
+ggplot(
+  pcaData,
+  aes(
+    x = PC1,
+    y = PC2,
+    colour = design
+  )
+) +
+  geom_point(size = 3) +
+  theme_bw() +
+  xlab(paste0("PC1: ", percentVar[1], "% variance")) +
+  ylab(paste0("PC2: ", percentVar[2], "% variance")) +
+  labs(title = "A")
+```
+```{r}
+metadata$replicate <- rep(c("r1", "r2", "r3"), times = 4)
+```
+
+
+```{r}
+pcaData <- plotPCA(
+  vsd,
+  intgroup = c("design", "replicate"),
+  returnData = TRUE
+)
+
+ggplot(
+  pcaData,
+  aes(
+    x = PC1,
+    y = PC2,
+    colour = design,
+    shape = replicate
+  )
+) +
+  geom_point(size = 3) +
+  theme_bw() +
+  xlab(paste0("PC1: ", percentVar[1], "% variance")) +
+  ylab(paste0("PC2: ", percentVar[2], "% variance")) +
+  labs(title = "A")
+```
+
+```{r}
+sampleDists <- dist(
+  t(assay(vsd)),
+  method = "euclidean"
+)
+
+sampleDistMatrix <- as.matrix(sampleDists)
+
+rownames(sampleDistMatrix) <- colnames(vsd)
+colnames(sampleDistMatrix) <- colnames(vsd)
+
+pheatmap(
+  sampleDistMatrix,
+  clustering_method = "complete",
+  main = "B"
+)
+```
+

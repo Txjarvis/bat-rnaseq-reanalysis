@@ -1,0 +1,71 @@
+---
+title: "05 GO Enrichment Analysis"
+author: "Tegan Jarvis"
+output: html_document
+---
+
+```{r}
+library(clusterProfiler)
+library(org.Hs.eg.db)
+library(enrichplot)
+library(ggplot2)
+```
+
+```{r}
+sig_genes <- readRDS("results/sig_genes_for_GO.rds")
+merged_results <- readRDS("results/merged_results.rds")
+```
+
+```{r}
+gene_symbols <- sig_genes$external_gene_name
+
+gene_symbols <- gene_symbols[
+  !is.na(gene_symbols) &
+    gene_symbols != ""
+]
+
+gene_symbols <- unique(gene_symbols)
+
+length(gene_symbols)
+head(gene_symbols)
+```
+
+
+```{r}
+gene_conversion <- bitr(
+  gene_symbols,
+  fromType = "SYMBOL",
+  toType = "ENTREZID",
+  OrgDb = org.Hs.eg.db
+)
+
+head(gene_conversion)
+```
+
+
+```{r}
+ego_bp <- enrichGO(
+  gene = gene_conversion$ENTREZID,
+  OrgDb = org.Hs.eg.db,
+  ont = "BP",
+  pAdjustMethod = "BH",
+  readable = TRUE
+)
+```
+
+
+```{r}
+dotplot(ego_bp, showCategory = 20)
+```
+
+
+```{r}
+head(as.data.frame(ego_bp), 20)
+```
+
+```{r}
+ego_bp <- pairwise_termsim(ego_bp)
+emapplot(ego_bp)
+barplot(ego_bp, showCategory = 15)
+```
+

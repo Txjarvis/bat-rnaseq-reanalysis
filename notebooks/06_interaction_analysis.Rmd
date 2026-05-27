@@ -1,0 +1,117 @@
+
+---
+title: "06 Temperature-Infection Interaction Analysis"
+author: "Tegan Jarvis"
+output: html_document
+---
+
+```{r}
+library(DESeq2)
+library(EnhancedVolcano)
+```
+
+```{r}
+counts <- readRDS("results/counts_matrix.rds")
+metadata <- readRDS("results/metadata.rds")
+```
+
+```{r}
+dds_interaction <- DESeqDataSetFromMatrix(
+  countData = counts,
+  colData = metadata,
+  design = ~ temperature * infection
+)
+```
+
+```{r}
+dds_interaction <- DESeq(dds_interaction)
+```
+
+```{r}
+resultsNames(dds_interaction)
+```
+
+```{r}
+res_interaction <- results(
+  dds_interaction,
+  name = "temperature5.infectionNI"
+)
+
+summary(res_interaction)
+```
+```{r}
+res_interaction_df <- as.data.frame(res_interaction)
+res_interaction_df$ensembl_gene_id <- rownames(res_interaction_df)
+
+sig_interaction <- subset(
+  res_interaction_df,
+  !is.na(padj) &
+    padj < 0.05 &
+    abs(log2FoldChange) > 1
+)
+
+nrow(sig_interaction)
+```
+
+
+```{r}
+head(res_interaction[order(res_interaction$padj), ])
+```
+
+```{r}
+png("volcano_ana.png",
+    width = 1200,
+    height = 1000,
+    res = 150)
+
+EnhancedVolcano(
+  res_interaction_df,
+
+  lab = rownames(res_interaction_df),
+
+  x = "log2FoldChange",
+  y = "padj",
+
+  pCutoff = 0.05,
+  FCcutoff = 1,
+
+  title = "Temperature-Infection Interaction",
+
+  subtitle = "Genes whose infection response changes with temperature"
+)
+
+dev.off()
+
+```
+
+far right: stronger infection response at 5°C
+far left: weaker or reversed response at 5°C
+
+```{r}
+dir.create("results", showWarnings = FALSE)
+
+saveRDS(dds_interaction, "results/dds_interaction.rds")
+saveRDS(res_interaction, "results/res_interaction.rds")
+saveRDS(sig_interaction, "results/sig_interaction_genes.rds")
+
+write.csv(
+  res_interaction_df,
+  "results/interaction_results.csv",
+  row.names = FALSE
+)
+
+write.csv(
+  sig_interaction,
+  "results/significant_interaction_genes.csv",
+  row.names = FALSE
+)
+```
+
+The interaction analysis tested whether the transcriptional response to infection differed between 37°C and 5°C. Compared with the broad infection effect, fewer genes showed significant interaction effects. This is suggesting that temperature modifies a subset of infection-responsive genes rather than globally changing the entire infection response.
+
+
+
+
+
+
+

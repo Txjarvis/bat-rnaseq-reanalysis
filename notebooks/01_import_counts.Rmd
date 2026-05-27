@@ -1,0 +1,109 @@
+---
+title: "01 Import Counts"
+author: "Tegan Jarvis"
+output: html_document
+---
+
+```{r}
+#full list of needed libraries
+library(edgeR)
+library(limma)
+library(DESeq2)
+library(pheatmap)
+library(EnhancedVolcano)
+library(ggplot2)
+library(dplyr)
+library(purrr)
+library(biomaRt)
+```
+
+#### Data organisation
+
+```{r}
+test <- read.delim(
+  "GSM7120302_NI37_A_feature.out.txt",
+  comment.char = "#"
+)
+
+head(test)
+```
+
+```{r}
+readLines("GSM7120302_NI37_A_feature.out.txt", n = 10)
+```
+
+```{r}
+counts_one_sample <- test[, c(1, ncol(test))]
+colnames(counts_one_sample) <- c("Geneid", "NI37_A")
+
+colnames(counts_one_sample)
+```
+
+#### Count matrix construction
+
+```{r}
+files <- list.files(pattern = "feature.out.txt")
+
+read_counts <- function(file){
+
+  sample_name <- sub("_feature.out.txt", "", file)
+  sample_name <- sub("GSM[0-9]+_", "", sample_name)
+
+  df <- read.delim(
+    file,
+    comment.char = "#"
+  )
+
+  df <- df[, c(1, ncol(df))]
+
+  colnames(df) <- c("Geneid", sample_name)
+
+  return(df)
+}
+
+count_list <- lapply(files, read_counts)
+
+counts <- reduce(count_list, full_join, by = "Geneid")
+
+rownames(counts) <- counts$Geneid
+counts$Geneid <- NULL
+
+counts <- as.matrix(counts)
+
+dim(counts)
+
+head(counts[,1:5])
+```
+
+```{r}
+head(counts[,1:5])
+
+summary(colSums(counts))
+```
+
+```{r}
+metadata <- data.frame(sample = colnames(counts),
+                                         infection = c( "NI","NI","NI",
+                                                        "INF","INF","INF",
+                                                        "NI","NI","NI",
+                                                        "INF","INF","INF" ),
+                                         temperature = c("37","37","37",
+                                                         "37","37","37",
+                                                         "5","5","5",
+                                                         "5","5","5"))
+
+rownames(metadata) <- metadata$sample
+
+```
+
+```{r}
+dir.create("results", showWarnings = FALSE)
+
+saveRDS(counts, "results/counts_matrix.rds")
+saveRDS(metadata, "results/metadata.rds")
+
+write.csv(counts, "results/counts_matrix.csv")
+write.csv(metadata, "results/metadata.csv", row.names = FALSE)
+
+stopifnot(all(rownames(metadata) == colnames(counts)))
+```
