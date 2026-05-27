@@ -54,5 +54,14 @@ bat-rnaseq-reanalysis/
 ├── README.md
 └── .gitignore
 
+## Example Outputs
+
+The analysis includes:
+Principal Component Analysis (PCA)
+Differential expression volcano plots
+Heatmaps of significant genes
+Interaction effect analyses
+Functional enrichment results
+
 Tegan Jarvis
 MSc Bioinformatics
