@@ -43,7 +43,9 @@ The project was performed in R using a reproducible notebook-based workflow.
 
 ---
 
-Repository Structure
+## Repository Structure
+
+```text
 bat-rnaseq-reanalysis/
 ├── notebooks/
 ├── figures/
@@ -51,6 +53,7 @@ bat-rnaseq-reanalysis/
 ├── data/
 ├── README.md
 └── .gitignore
+```
 
 ---
 
